@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#121915">
+<meta name="description" content="두 진자의 시작 각도를 바꾸고 중력 아래에서 움직이는 궤적을 관찰하세요.">
+<title>이중진자</title>
+<style>
+:root{color-scheme:dark;font:16px system-ui,sans-serif;background:#121915;color:#f4f6ee;--ink:#baff83;--muted:#aab7ab;--line:#344239}
+*{box-sizing:border-box}
+body{margin:0}
+main{width:min(100% - 2rem,52rem);margin:auto;padding:clamp(1.5rem,5vw,3rem) 0}
+small,.readout{font:700 .72rem ui-monospace,monospace;letter-spacing:.13em;color:var(--ink)}
+h1{font-size:clamp(2.6rem,8vw,4.8rem);line-height:1.04;margin:.24em 0 .18em;letter-spacing:-.065em}
+p{margin:0 0 1.25rem;color:var(--muted);line-height:1.6}
+.stage{position:relative;overflow:hidden;border:1px solid var(--line);border-radius:1rem;background-color:#17221b;background-image:radial-gradient(#384b3c 1px,transparent 1px);background-size:20px 20px}
+canvas{width:100%;height:clamp(280px,55vh,530px);display:block}
+.readout{position:absolute;top:1rem;left:1rem;pointer-events:none}
+.controls{display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;margin-top:.9rem}
+button{font:inherit;font-weight:700;padding:.62rem 1rem;min-height:44px;border:1px solid var(--line);border-radius:.6rem;color:inherit;background:#202b23;cursor:pointer}
+button:hover{background:#2a392d}
+#toggle{background:var(--ink);color:#182114;border-color:var(--ink);min-width:6rem}
+#toggle:hover{background:#d1ffa9}
+:focus-visible{outline:2px solid white;outline-offset:3px}
+.check{margin-left:auto;display:flex;align-items:center;gap:.4rem;min-height:44px;color:var(--muted);cursor:pointer}
+input{accent-color:var(--ink)}
+.angles{display:grid;grid-template-columns:1fr 1fr;gap:1rem;padding-top:1.25rem}
+.angles label{display:grid;grid-template-columns:1fr auto;gap:.35rem;align-items:center;color:var(--muted);font-size:.87rem}
+.angles input{grid-column:1/-1;width:100%;margin:0}
+output{color:var(--ink);font:inherit;font-variant-numeric:tabular-nums}
+</style>
+</head>
+<body><main>
+<header><small>PHYSICS / 01</small><h1>이중진자</h1><p>두 추의 시작 각도를 바꿔 보면, 작은 차이도 전혀 다른 궤적을 만들어요.</p></header>
+<div class="stage">
+<canvas id="stage" role="img" aria-label="두 막대로 이어진 진자와 아래쪽 추가 지나간 궤적"></canvas>
+<div class="readout" id="time" aria-hidden="true">T + 0.00 s</div>
+</div>
+<div class="controls">
+<button id="toggle" type="button">시작</button>
+<button id="reset" type="button">처음으로</button>
+<label class="check"><input id="trail" type="checkbox" checked> 궤적 표시</label>
+</div>
+<div class="angles">
+<label>첫 추 시작 각도 <output id="a1out" for="a1">135°</output><input id="a1" aria-label="첫 추 시작 각도" type="range" min="-180" max="180" value="135"></label>
+<label>둘째 추 시작 각도 <output id="a2out" for="a2">110°</output><input id="a2" aria-label="둘째 추 시작 각도" type="range" min="-180" max="180" value="110"></label>
+</div>
+</main><script src="./simulation.js"></script></body>
+</html>
