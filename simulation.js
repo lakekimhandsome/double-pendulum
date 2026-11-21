@@ -10,19 +10,20 @@ const timeLabel = document.getElementById('time');
 const angles = [document.getElementById('a1'), document.getElementById('a2')];
 const outputs = [document.getElementById('a1out'), document.getElementById('a2out')];
 const g = 9.81;
+const m1 = 1, m2 = .25, l1 = 1, l2 = .6;
 const dt = 1 / 240;
 let launchAngles = angles.map(input => Number(input.value) * Math.PI / 180);
 let drag;
 let state, time, points, running = false, previous, accumulator, width, height;
 
-// Unit masses and rod lengths. Angles are measured from straight down.
+// Point masses on massless rods. Both angles are measured from straight down.
 function derivative([a, b, u, v]) {
   const c = Math.cos(a - b);
   const s = Math.sin(a - b);
-  const p = -2 * g * Math.sin(a) - v * v * s;
-  const q = -g * Math.sin(b) + u * u * s;
-  const det = 2 - c * c;
-  return [u, v, (p - c * q) / det, (2 * q - c * p) / det];
+  const p = -(m1 + m2) * g * Math.sin(a) - m2 * l2 * v * v * s;
+  const q = -g * Math.sin(b) + l1 * u * u * s;
+  const accel1 = (p - m2 * c * q) / (l1 * (m1 + m2 - m2 * c * c));
+  return [u, v, accel1, (q - l1 * c * accel1) / l2];
 }
 
 function integrate(y, step) {
@@ -35,17 +36,25 @@ function integrate(y, step) {
 }
 
 function positions([a, b]) {
-  const first = [Math.sin(a), Math.cos(a)];
-  return [first, [first[0] + Math.sin(b), first[1] + Math.cos(b)]];
+  const first = [l1 * Math.sin(a), l1 * Math.cos(a)];
+  return [first, [first[0] + l2 * Math.sin(b), first[1] + l2 * Math.cos(b)]];
 }
 
-// Invert the two unit-length links; pick the elbow closest to the last pose.
+// Project onto the reachable annulus and pick the elbow closest to the last pose.
 function closestAngles(x, y, [a, b]) {
   const radius = Math.hypot(x, y);
-  if (radius < 1e-8) return [a, a + Math.PI];
-  const heading = Math.atan2(x, y);
-  const bend = Math.acos(Math.min(1, radius / 2));
-  const candidates = [[heading + bend, heading - bend], [heading - bend, heading + bend]];
+  const [currentX, currentY] = positions([a, b])[1];
+  const heading = radius < 1e-8 ? Math.atan2(currentX, currentY) : Math.atan2(x, y);
+  const inner = l1 - l2;
+  const outer = l1 + l2;
+  if (radius <= inner) return [heading, heading + Math.PI];
+  if (radius >= outer) return [heading, heading];
+  const cosine = (radius * radius + l1 * l1 - l2 * l2) / (2 * radius * l1);
+  const bend = Math.acos(Math.max(-1, Math.min(1, cosine)));
+  const candidates = [heading + bend, heading - bend].map(first => [
+    first,
+    Math.atan2(x - l1 * Math.sin(first), y - l1 * Math.cos(first)),
+  ]);
   const distance = target => target.reduce((d, angle, i) => {
     const delta = angle - (i ? b : a);
     return d + Math.atan2(Math.sin(delta), Math.cos(delta)) ** 2;
@@ -53,7 +62,7 @@ function closestAngles(x, y, [a, b]) {
   return distance(candidates[0]) <= distance(candidates[1]) ? candidates[0] : candidates[1];
 }
 
-const displayScale = () => Math.min(width, height) * .215;
+const displayScale = () => Math.min(width, height) * .43 / (l1 + l2);
 
 function draw() {
   if (!width || !height) return;
@@ -81,7 +90,7 @@ function draw() {
   ctx.strokeStyle = '#c5d6c8';
   ctx.lineCap = 'round';
   ctx.stroke();
-  for (const [point, radius, fill] of [[origin, 4, '#c5d6c8'], [first, 8, '#f0f5e9'], [second, 10, '#baff83']]) {
+  for (const [point, radius, fill] of [[origin, 4, '#c5d6c8'], [first, 10, '#f0f5e9'], [second, 6, '#baff83']]) {
     ctx.beginPath();
     ctx.arc(...point, radius, 0, Math.PI * 2);
     ctx.fillStyle = fill;
