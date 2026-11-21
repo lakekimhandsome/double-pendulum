@@ -2,6 +2,7 @@
 
 const canvas = document.getElementById('stage');
 const ctx = canvas.getContext('2d');
+const bob = document.getElementById('bob');
 const toggle = document.getElementById('toggle');
 const reset = document.getElementById('reset');
 const trailToggle = document.getElementById('trail');
@@ -10,6 +11,8 @@ const angles = [document.getElementById('a1'), document.getElementById('a2')];
 const outputs = [document.getElementById('a1out'), document.getElementById('a2out')];
 const g = 9.81;
 const dt = 1 / 240;
+let launchAngles = angles.map(input => Number(input.value) * Math.PI / 180);
+let drag;
 let state, time, points, running = false, previous, accumulator, width, height;
 
 // Unit masses and rod lengths. Angles are measured from straight down.
@@ -36,10 +39,26 @@ function positions([a, b]) {
   return [first, [first[0] + Math.sin(b), first[1] + Math.cos(b)]];
 }
 
+// Invert the two unit-length links; pick the elbow closest to the last pose.
+function closestAngles(x, y, [a, b]) {
+  const radius = Math.hypot(x, y);
+  if (radius < 1e-8) return [a, a + Math.PI];
+  const heading = Math.atan2(x, y);
+  const bend = Math.acos(Math.min(1, radius / 2));
+  const candidates = [[heading + bend, heading - bend], [heading - bend, heading + bend]];
+  const distance = target => target.reduce((d, angle, i) => {
+    const delta = angle - (i ? b : a);
+    return d + Math.atan2(Math.sin(delta), Math.cos(delta)) ** 2;
+  }, 0);
+  return distance(candidates[0]) <= distance(candidates[1]) ? candidates[0] : candidates[1];
+}
+
+const displayScale = () => Math.min(width, height) * .215;
+
 function draw() {
   if (!width || !height) return;
   ctx.clearRect(0, 0, width, height);
-  const unit = Math.min(width, height) * .215;
+  const unit = displayScale();
   const project = ([x, y]) => [width / 2 + x * unit, height / 2 + y * unit];
   if (trailToggle.checked) {
     ctx.lineWidth = 2;
@@ -53,6 +72,7 @@ function draw() {
   }
   const origin = project([0, 0]);
   const [first, second] = positions(state).map(project);
+  bob.style.transform = `translate(${second[0]}px, ${second[1]}px)`;
   ctx.beginPath();
   ctx.moveTo(...origin);
   ctx.lineTo(...first);
@@ -88,10 +108,13 @@ function setRunning(next) {
 }
 
 function restart() {
-  state = [...angles.map(input => Number(input.value) * Math.PI / 180), 0, 0];
+  state = [...launchAngles, 0, 0];
   time = accumulator = 0;
   points = [positions(state)[1]];
   angles.forEach((input, i) => {
+    const a = launchAngles[i];
+    const degrees = Math.atan2(Math.sin(a), Math.cos(a)) * 180 / Math.PI;
+    input.value = String(Math.round(degrees * 10) / 10);
     outputs[i].value = input.value + '°';
     input.setAttribute('aria-valuetext', input.value + '도');
   });
@@ -99,10 +122,41 @@ function restart() {
   draw();
 }
 
-toggle.addEventListener('click', () => setRunning(!running));
+toggle.addEventListener('click', () => { if (!drag) setRunning(!running); });
 reset.addEventListener('click', restart);
 trailToggle.addEventListener('change', draw);
-angles.forEach(input => input.addEventListener('input', restart));
+angles.forEach((input, i) => input.addEventListener('input', () => {
+  launchAngles[i] = Number(input.value) * Math.PI / 180;
+  restart();
+}));
+
+bob.addEventListener('pointerdown', event => {
+  if (drag || event.button !== 0) return;
+  const rect = bob.getBoundingClientRect();
+  drag = { id: event.pointerId, x: event.clientX - rect.left - rect.width / 2,
+    y: event.clientY - rect.top - rect.height / 2 };
+  bob.setPointerCapture(drag.id);
+  bob.classList.add('dragging');
+  launchAngles = state.slice(0, 2);
+  restart();
+});
+function dragBob(event) {
+  if (!drag || event.pointerId !== drag.id) return;
+  const rect = canvas.getBoundingClientRect();
+  const x = (event.clientX - drag.x - rect.left - width / 2) / displayScale();
+  const y = (event.clientY - drag.y - rect.top - height / 2) / displayScale();
+  launchAngles = closestAngles(x, y, state);
+  restart();
+}
+function endDrag(event) {
+  if (!drag || event.pointerId !== drag.id) return;
+  drag = undefined;
+  bob.classList.remove('dragging');
+}
+bob.addEventListener('pointermove', dragBob);
+bob.addEventListener('pointerup', event => { dragBob(event); endDrag(event); });
+bob.addEventListener('pointercancel', endDrag);
+bob.addEventListener('lostpointercapture', endDrag);
 restart();
 resize();
 new ResizeObserver(resize).observe(canvas);
